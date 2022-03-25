@@ -94,7 +94,8 @@ user_info_model = user_account_namespace.model(
 		'address': fields.String(required=True, description="An address"),
 		'city': fields.String(required=True, description="A city"),
 		'zipcode': fields.String(required=True, description="A zip code"),
-		'fax': fields.String(required=True, description="A fax")
+		'fax': fields.String(required=True, description="A fax"),
+		'usa_state': fields.String(required=True, enum=['AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT', 'WA', 'WI', 'WV', 'WY'])
 	}
 )
 
@@ -114,7 +115,8 @@ truck_info_model = user_account_namespace.model(
 		"unloaded_vehicle_weight": fields.String(required=True, description="An unload vehicle weight"),
 		"axle": fields.String(required=True, description="An axle"),
 		"ny_hut": fields.String(required=True, description="A ny hut"),
-		"or_plate_pass": fields.String(required=True, description="An or plate or pass")
+		"or_plate_pass": fields.String(required=True, description="An or plate or pass"),
+		'current_driver': fields.Integer(description="A current driver")
 	}
 )
 
@@ -339,13 +341,15 @@ class CheckAuthDriver(Resource):
 			Check if Driver is Logged in and send data of User
 		"""
 
-		try:
+		# try:
+		if True:
 			email = get_jwt_identity()
 			driver = Driver.query.filter_by(email=email).first()
 
 			return driver, HTTPStatus.OK
 
-		except:
+		# except:
+		else:
 			return "Error", HTTPStatus.BAD_REQUEST
 
 
@@ -366,7 +370,9 @@ class EditInfo(Resource):
 			email = get_jwt_identity()
 			user = User.query.filter_by(email=email).first()
 
+
 			data = request.get_json()
+			print(data.get("usa_state"))
 			user.contact_name = data.get("contact_name")
 			user.company_name = data.get("company_name")
 			user.phone = data.get("phone")
@@ -375,6 +381,7 @@ class EditInfo(Resource):
 			user.city=data.get('city')
 			user.zipcode=data.get('zipcode')
 			user.fax=data.get('fax')
+			user.usa_state = data.get("usa_state")
 			user.update()
 
 			return user, HTTPStatus.OK
@@ -463,13 +470,14 @@ class RetrieveEditDeleteDriver(Resource):
  		"""
 
 		email = get_jwt_identity()
+
 		user = User.query.filter_by(email=email).first()
 
 		data = request.get_json()
 
 		driver = Driver.query.filter_by(id=id, user=user.id).first()
 
-		return driver, HTTPStatus.Ok
+		return driver, HTTPStatus.OK
 
 
 	@jwt_required(refresh=False)
@@ -607,7 +615,7 @@ class RetrieveEditDeleteTruck(Resource):
 
 		truck = Truck.query.filter_by(id=id, user=user.id).first()
 
-		return truck, HTTPStatus.Ok
+		return truck, HTTPStatus.OK
 
 
 	@jwt_required(refresh=False)
@@ -623,7 +631,6 @@ class RetrieveEditDeleteTruck(Resource):
 
 		truck = Truck.query.filter_by(id=id, user=user.id).first()
 
-
 		truck.truck_unit = data.get('truck_unit')
 		truck.gross_vehicle_weight = data.get('gross_vehicle_weight')
 		truck.fuel_type = data.get('fuel_type')
@@ -638,6 +645,10 @@ class RetrieveEditDeleteTruck(Resource):
 		truck.axle = data.get('axle')
 		truck.ny_hut = data.get('ny_hut')
 		truck.or_plate_pass = data.get('or_plate_pass')
+
+		if data.get('current_driver'):
+			driver = Driver.query.filter_by(email=data.get('current_driver'), user=user.id).first()
+			truck.current_driver = driver.id
 		
 
 		truck.update()
@@ -723,3 +734,104 @@ class ExtendService(Resource):
 		except:
 			return "Error during payment", HTTPStatus.BAD_REQUEST
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/driver')
+class RetrieveDriverInfo(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model)
+	def get(self):
+		"""
+			Retrieve Driver Info
+ 		"""
+
+		email = get_jwt_identity()
+		
+		driver = Driver.query.filter_by(email=email).first()
+
+		return driver, HTTPStatus.OK		
+
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model)
+	def post(self):
+		"""
+			Edit Driver Info
+		"""	
+
+		email = get_jwt_identity()
+
+		driver = Driver.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+
+		driver.first_name = data.get('first_name')
+		driver.last_name = data.get('last_name')
+		driver.cdl_no = data.get('cdl_no')
+		
+
+		driver.update()
+
+		return driver, HTTPStatus.OK
+
+
+
+
+
+@user_account_namespace.route('/current-truck')
+class RetrieveCurrentTruck(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(truck_info_model)
+	def get(self):
+		"""
+			Retrieve Current Truck
+ 		"""
+
+		email = get_jwt_identity()
+		
+		driver = Driver.query.filter_by(email=email).first()
+		truck = Truck.query.filter_by(current_driver = driver.id).first()
+
+		return truck, HTTPStatus.OK		
+
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model)
+	def post(self):
+		"""
+			Edit Driver Info
+		"""	
+
+		email = get_jwt_identity()
+
+		driver = Driver.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+
+		driver.first_name = data.get('first_name')
+		driver.last_name = data.get('last_name')
+		driver.cdl_no = data.get('cdl_no')
+		
+
+		driver.update()
+
+		return driver, HTTPStatus.OK
