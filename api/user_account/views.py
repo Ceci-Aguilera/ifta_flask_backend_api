@@ -1,0 +1,725 @@
+import os
+from http import HTTPStatus
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
+
+
+from flask import request, redirect, make_response, send_from_directory, current_app
+from flask_restx import Resource,Namespace, fields
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import (
+	create_access_token,
+	create_refresh_token,
+	jwt_required,
+	get_jwt_identity,
+	get_jwt
+)
+
+from werkzeug.utils import secure_filename
+
+import stripe
+
+
+from .models import User, Driver, Truck, Payment
+from flask import current_app, render_template
+from config import db
+
+
+
+class SimpleDateField(fields.Raw):
+    def format(self, value):
+        return value.strftime('%Y-%m-%d')
+
+
+
+user_account_namespace=Namespace('user-account', description="A Namespace for user account management")
+
+signup_model = user_account_namespace.model(
+	"User", {
+		'company_name': fields.String(required=True, description="A company name"),
+		'contact_name': fields.String(required=True, description="A contact name"),
+		'email': fields.String(required=True, description="An email"),
+		'phone': fields.String(required=True, description="An phone"),
+		'password': fields.String(required=True, description="A password"),
+		'ein_no': fields.String(required=True, description="An ein number"),
+		'address': fields.String(required=True, description="An address"),
+		'city': fields.String(required=True, description="A city"),
+		'zipcode': fields.String(required=True, description="A zip code"),
+		'fax': fields.String(required=True, description="A fax")
+	}
+)
+
+sign_up_driver_model = user_account_namespace.model(
+	"Driver", {
+		'first_name': fields.String(required=True, description="A first name"),
+		'last_name': fields.String(required=True, description="A last name"),
+		'email': fields.String(required=True, description="An email"),
+		'cdl_no': fields.String(required=True, description="A cdl number"),
+		'password': fields.String(required=True, description="A password")
+	}
+)
+
+
+
+
+
+
+
+driver_info_model = user_account_namespace.model(
+	"Driver", {
+		"id": fields.Integer(required=True, description="An id"),
+		'first_name': fields.String(required=True, description="A first name"),
+		'last_name': fields.String(required=True, description="A last name"),
+		'email': fields.String(required=True, description="An email"),
+		'cdl_no': fields.String(required=True, description="A cdl number")
+	}
+)
+
+login_model = user_account_namespace.model(
+	"Login", {
+		'email': fields.String(required=True, description="An email"),
+		'password': fields.String(required=True, description="A password"),
+	}
+)
+
+user_info_model = user_account_namespace.model(
+	"User", {
+		'company_name': fields.String(required=True, description="A company name"),
+		'contact_name': fields.String(required=True, description="A contact name"),
+		'email': fields.String(required=True, description="An email"),
+		'paid_until': SimpleDateField(),
+		'phone': fields.String(required=True, description="An phone"),
+		'ein_no': fields.String(required=True, description="An ein number"),
+		'address': fields.String(required=True, description="An address"),
+		'city': fields.String(required=True, description="A city"),
+		'zipcode': fields.String(required=True, description="A zip code"),
+		'fax': fields.String(required=True, description="A fax")
+	}
+)
+
+truck_info_model = user_account_namespace.model(
+	"Truck", {
+		"id": fields.Integer(required=True, description="An id"),
+		"truck_unit": fields.String(required=True, description="A truck unit"),
+		"gross_vehicle_weight": fields.String(required=True, description="A gross vehicle weight"),
+		"fuel_type": fields.String(required=True, description="A fuel type"),
+		"vim_no": fields.String(required=True, description="A vim number"),
+		"fleet_name": fields.String(required=True, description="A fleet name"),
+		"vehicle_fleet_no": fields.String(required=True, description="A vehicle fleet number"),
+		"truck_make": fields.String(required=True, description="A truck make"),
+		"truck_model": fields.String(required=True, description="A truck model"),
+		"license_plate_no": fields.String(required=True, description="A license plate number"),
+		"year": fields.String(required=True, description="A year"),
+		"unloaded_vehicle_weight": fields.String(required=True, description="An unload vehicle weight"),
+		"axle": fields.String(required=True, description="An axle"),
+		"ny_hut": fields.String(required=True, description="A ny hut"),
+		"or_plate_pass": fields.String(required=True, description="An or plate or pass")
+	}
+)
+
+
+
+
+
+@user_account_namespace.route('/signup')
+class SignUp(Resource):
+
+
+	@user_account_namespace.expect(signup_model)
+	@user_account_namespace.marshal_with(signup_model)
+	def post(self):
+		"""
+			SIGN UP a New User
+		"""
+
+		data = user_account_namespace.payload
+
+		try:
+			new_user = User(
+				email=data.get('email'),
+				company_name=data.get('company_name'),
+				contact_name=data.get('contact_name'),
+				phone=data.get('phone'),
+				ein_no=data.get('ein_no'),
+				address=data.get('address'),
+				city=data.get('city'),
+				zipcode=data.get('zipcode'),
+				fax=data.get('fax'),
+				password_hash=generate_password_hash(data.get("password"))
+			)
+			
+			new_user.save()
+
+
+
+			return "Success", HTTPStatus.CREATED
+			
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
+@user_account_namespace.route('/driver-signup')
+class DriverRegister(Resource):
+
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.expect(sign_up_driver_model)
+	@user_account_namespace.marshal_with(sign_up_driver_model)
+	def post(self):
+		"""
+			Register a New Driver
+		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = user_account_namespace.payload
+
+		try:
+			new_driver = Driver(
+				email=data.get('email'),
+				first_name=data.get('first_name'),
+				last_name=data.get('last_name'),
+				cdl_no=data.get('cdl_no'),
+				password_hash=generate_password_hash('default123!'),
+				user = user.id
+			)
+			
+			new_driver.save()
+
+
+
+			return "Success", HTTPStatus.CREATED
+			
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/login')
+class LogIn(Resource):
+
+	
+	@user_account_namespace.expect(login_model)
+	def post(self):
+		"""
+			LOGIN And Generate JWT
+		"""
+		data = request.get_json()
+
+		email = data.get('email')
+		password = data.get('password')
+
+		user = User.query.filter_by(email=email).first()
+		if user is not None and check_password_hash(user.password_hash, password):
+			
+			access_token = create_access_token(identity=user.email)
+			refresh_token = create_refresh_token(identity=user.email)
+
+			response = {
+				'access_token': access_token,
+				'refresh_token': refresh_token
+			}
+
+			return response, HTTPStatus.OK
+
+		return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/driver-login')
+class LogIn(Resource):
+
+	
+	@user_account_namespace.expect(login_model)
+	def post(self):
+		"""
+			LOGIN Driver And Generate JWT
+		"""
+		data = request.get_json()
+
+		email = data.get('email')
+		password = data.get('password')
+
+		driver = Driver.query.filter_by(email=email).first()
+
+		if driver is not None and check_password_hash(driver.password_hash, password):
+			
+			access_token = create_access_token(identity=driver.email)
+			refresh_token = create_refresh_token(identity=driver.email)
+
+			response = {
+				'access_token': access_token,
+				'refresh_token': refresh_token
+			}
+
+			return response, HTTPStatus.OK
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/refresh-token')
+class RefreshToken(Resource):
+
+	
+	@jwt_required(refresh=True)
+	def post(self):
+		"""
+			Refresh JWT Token
+		"""
+
+		email = get_jwt_identity()
+
+		access_token = create_access_token(identity=email)
+
+		return {"access_token": access_token}, HTTPStatus.OK
+
+
+
+
+
+
+
+@user_account_namespace.route('/check-auth')
+class CheckAuth(Resource):
+
+	
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(user_info_model)
+	def get(self):
+		"""
+			Check if Driver is Logged in and send data of User
+		"""
+
+		try:
+			email = get_jwt_identity()
+			user = User.query.filter_by(email=email).first()
+
+
+			return user, HTTPStatus.OK
+
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+@user_account_namespace.route('/driver-check-auth')
+class CheckAuthDriver(Resource):
+
+	
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model)
+	def get(self):
+		"""
+			Check if Driver is Logged in and send data of User
+		"""
+
+		try:
+			email = get_jwt_identity()
+			driver = Driver.query.filter_by(email=email).first()
+
+			return driver, HTTPStatus.OK
+
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+@user_account_namespace.route('/edit-info')
+class EditInfo(Resource):
+
+	
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(user_info_model)
+	def post(self):
+		"""
+			Edit info in User Account
+		"""
+
+		try:
+			email = get_jwt_identity()
+			user = User.query.filter_by(email=email).first()
+
+			data = request.get_json()
+			user.contact_name = data.get("contact_name")
+			user.company_name = data.get("company_name")
+			user.phone = data.get("phone")
+			user.ein_no=data.get('ein_no')
+			user.address=data.get('address')
+			user.city=data.get('city')
+			user.zipcode=data.get('zipcode')
+			user.fax=data.get('fax')
+			user.update()
+
+			return user, HTTPStatus.OK
+
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
+
+@user_account_namespace.route('/reset-password')
+class ResetPassword(Resource):
+
+	
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(user_info_model)
+	def post(self):
+		"""
+			Reset password in User Account
+		"""
+
+		try:
+			email = get_jwt_identity()
+			user = User.query.filter_by(email=email).first()
+
+			data = request.get_json()
+			password = data.get('password')
+			re_password = data.get("re_password")
+
+			if password != re_password:
+				return "Error", HTTPStatus.BAD_REQUEST
+
+			user.password_hash = generate_password_hash(password)
+
+			user.update()
+
+			return user, HTTPStatus.OK
+
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/list-drivers')
+class ListDrivers(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model, as_list=True)
+	def get(self):
+		"""
+			List Trucks
+		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		drivers = Driver.query.filter_by(user=user.id)
+
+
+		if not drivers.all():
+			return None, HTTPStatus.BAD_REQUEST
+
+		return drivers.all(), HTTPStatus.OK
+
+
+
+
+
+@user_account_namespace.route('/edit-driver/<id>')
+class RetrieveEditDeleteDriver(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(driver_info_model)
+	def get(self, id):
+		"""
+			Retrieve Driver Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		driver = Driver.query.filter_by(id=id, user=user.id).first()
+
+		return driver, HTTPStatus.Ok
+
+
+	@jwt_required(refresh=False)
+	def post(self, id):
+		"""
+			Edit Driver Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		driver = Driver.query.filter_by(id=id, user=user.id).first()
+
+
+		driver.first_name = data.get('first_name')
+		driver.last_name = data.get('last_name')
+		driver.cdl_no = data.get('cdl_no')
+		driver.email = data.get('email')
+		
+
+		driver.update()
+
+		return "Success", HTTPStatus.OK
+
+
+	@jwt_required(refresh=False)
+	def delete(self, id):
+		"""
+			Delete Driver Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		driver = Driver.query.filter_by(id=id, user=user.id).first()
+
+		driver.delete()
+
+		return "Success", HTTPStatus.OK
+
+
+
+
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/list-trucks')
+class ListTrucks(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(truck_info_model, as_list=True)
+	def get(self):
+		"""
+			List Trucks
+		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		trucks = Truck.query.filter_by(user=user.id)
+
+
+		if not trucks.all():
+			return None, HTTPStatus.BAD_REQUEST
+
+		return trucks.all(), HTTPStatus.OK
+
+
+
+
+
+
+
+
+@user_account_namespace.route('/create-truck')
+class CreateTruck(Resource):
+
+	@jwt_required(refresh=False)
+	def post(self):
+		"""
+			Create New Truck
+		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		new_truck = Truck(
+			truck_unit = data.get('truck_unit'),
+			gross_vehicle_weight = data.get('gross_vehicle_weight'),
+			fuel_type = data.get('fuel_type'),
+			vim_no = data.get('vim_no'),
+			fleet_name = data.get('fleet_name'),
+			vehicle_fleet_no = data.get('vehicle_fleet_no'),
+			truck_make = data.get('truck_make'),
+			truck_model = data.get('truck_model'),
+			license_plate_no = data.get('license_plate_no'),
+			year = data.get('year'),
+			unloaded_vehicle_weight = data.get('unloaded_vehicle_weight'),
+			axle = data.get('axle'),
+			ny_hut = data.get('ny_hut'),
+			or_plate_pass = data.get('or_plate_pass'),
+			user = user.id
+		)
+
+		new_truck.save()
+
+		return "Success", HTTPStatus.OK
+
+
+@user_account_namespace.route('/edit-truck/<id>')
+class RetrieveEditDeleteTruck(Resource):
+
+	@jwt_required(refresh=False)
+	@user_account_namespace.marshal_with(truck_info_model)
+	def get(self, id):
+		"""
+			Retrieve Truck Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		truck = Truck.query.filter_by(id=id, user=user.id).first()
+
+		return truck, HTTPStatus.Ok
+
+
+	@jwt_required(refresh=False)
+	def post(self, id):
+		"""
+			Edit Truck Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		truck = Truck.query.filter_by(id=id, user=user.id).first()
+
+
+		truck.truck_unit = data.get('truck_unit')
+		truck.gross_vehicle_weight = data.get('gross_vehicle_weight')
+		truck.fuel_type = data.get('fuel_type')
+		truck.vim_no = data.get('vim_no')
+		truck.fleet_name = data.get('fleet_name')
+		truck.vehicle_fleet_no = data.get('vehicle_fleet_no')
+		truck.truck_make = data.get('truck_make')
+		truck.truck_model = data.get('truck_model')
+		truck.license_plate_no = data.get('license_plate_no')
+		truck.year = data.get('year')
+		truck.unloaded_vehicle_weight = data.get('unloaded_vehicle_weight')
+		truck.axle = data.get('axle')
+		truck.ny_hut = data.get('ny_hut')
+		truck.or_plate_pass = data.get('or_plate_pass')
+		
+
+		truck.update()
+
+		return "Success", HTTPStatus.OK
+
+
+	@jwt_required(refresh=False)
+	def delete(self, id):
+		"""
+			Delete Truck Info
+ 		"""
+
+		email = get_jwt_identity()
+		user = User.query.filter_by(email=email).first()
+
+		data = request.get_json()
+
+		truck = Truck.query.filter_by(id=id, user=user.id).first()
+
+		truck.delete()
+
+		return "Success", HTTPStatus.OK
+
+
+
+@user_account_namespace.route('/extend-service')
+class ExtendService(Resource):
+
+	@jwt_required(refresh=False)
+	def post(self):
+
+		try:
+
+			stripe.api_key = current_app.config["STRIPE_TEST_SECRET_KEY"]
+
+			email = get_jwt_identity()
+			user = User.query.filter_by(email=email).first()
+			
+			data = request.get_json()
+
+			card_num = data.get("card_num")
+			exp_month = data.get("exp_month")
+			exp_year = data.get("exp_year")
+			cvc = data.get("cvc")
+
+			token = stripe.Token.create(
+				card = {
+					"number": card_num,
+					"exp_month": exp_month,
+					"exp_year": exp_year,
+					"cvc": cvc
+				}
+			)
+
+			amount = 2500
+
+			charge = stripe.Charge.create(
+				amount=amount,
+				currency="usd",
+				source=token
+			)
+
+			stripe_charge_id = charge['id']
+
+			new_payment = Payment(
+				amount = amount,
+				charge_id = stripe_charge_id,
+				user = user.id
+			)
+
+			new_payment.save()
+
+			
+			user.paid_until = user.paid_until + timedelta(30)
+
+			user.update()
+
+			return "Success", HTTPStatus.OK
+
+
+
+		except:
+			return "Error during payment", HTTPStatus.BAD_REQUEST
+
