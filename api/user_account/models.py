@@ -140,6 +140,7 @@ class Driver(db.Model):
     password_hash = db.Column(db.Text(), nullable=False)
 
     user = db.Column(db.Integer(), db.ForeignKey("users.id"))
+    truck = db.relationship("Truck", uselist=False, backref="driver")
 
 
     def save(self):

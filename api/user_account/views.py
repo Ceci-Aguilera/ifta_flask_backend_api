@@ -814,10 +814,10 @@ class RetrieveCurrentTruck(Resource):
 
 
 	@jwt_required(refresh=False)
-	@user_account_namespace.marshal_with(driver_info_model)
+	@user_account_namespace.marshal_with(truck_info_model)
 	def post(self):
 		"""
-			Edit Driver Info
+			Change Current Truck
 		"""	
 
 		email = get_jwt_identity()
@@ -826,12 +826,22 @@ class RetrieveCurrentTruck(Resource):
 
 		data = request.get_json()
 
+		new_truck_plate = data.get('license_plate_no')
+		truck = Truck.query.filter_by(license_plate_no=new_truck_plate, user = driver.user).first()
 
-		driver.first_name = data.get('first_name')
-		driver.last_name = data.get('last_name')
-		driver.cdl_no = data.get('cdl_no')
+		if truck:
+			try:
+				old_truck = Truck.query.filter_by(current_driver = driver.id).first()
+				old_truck.current_driver = None
+				old_truck.update()
+				truck.current_driver = driver.id
+			except:
+				truck.current_driver = driver.id
 		
+			truck.update()
 
-		driver.update()
+		else:
+			return "Error", HTTPStatus.BAD_REQUEST
 
-		return driver, HTTPStatus.OK
+
+		return truck, HTTPStatus.OK

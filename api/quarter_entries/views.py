@@ -68,7 +68,35 @@ quarter_model = quarter_taxes_namespace.model(
 	}
 )
 
-@quarter_taxes_namespace.route("/create-list")
+
+
+
+
+truck_info_model = quarter_taxes_namespace.model(
+	"Truck", {
+		"id": fields.Integer(required=True, description="An id"),
+		"truck_unit": fields.String(required=True, description="A truck unit"),
+		"gross_vehicle_weight": fields.String(required=True, description="A gross vehicle weight"),
+		"fuel_type": fields.String(required=True, description="A fuel type"),
+		"vim_no": fields.String(required=True, description="A vim number"),
+		"fleet_name": fields.String(required=True, description="A fleet name"),
+		"vehicle_fleet_no": fields.String(required=True, description="A vehicle fleet number"),
+		"truck_make": fields.String(required=True, description="A truck make"),
+		"truck_model": fields.String(required=True, description="A truck model"),
+		"license_plate_no": fields.String(required=True, description="A license plate number"),
+		"year": fields.String(required=True, description="A year"),
+		"unloaded_vehicle_weight": fields.String(required=True, description="An unload vehicle weight"),
+		"axle": fields.String(required=True, description="An axle"),
+		"ny_hut": fields.String(required=True, description="A ny hut"),
+		"or_plate_pass": fields.String(required=True, description="An or plate or pass"),
+		'current_driver': fields.Integer(description="A current driver")
+	}
+)
+
+
+
+
+@quarter_taxes_namespace.route("/new-entry/create")
 class CreateGetAllNewEntry(Resource):
 
 	@jwt_required(refresh=False)
@@ -77,12 +105,13 @@ class CreateGetAllNewEntry(Resource):
 			Create New Entry for the Driver
 		"""
 
-		try:
+		# try:
+		if True:
 			email = get_jwt_identity()
 			
 			driver = Driver.query.filter_by(email=email).first()
 
-			current_truck = driver.current_truck
+			current_truck = Truck.query.filter_by(current_driver=driver.id).first()
 
 			data = request.get_json()
 
@@ -106,28 +135,26 @@ class CreateGetAllNewEntry(Resource):
 
 			new_entry.save()
 
-			try:
-				quarter = Quarter.query.filter_by(number=current_quarter, year=year, user=user.id)
-			except:
-				quarter = Quarter(number=current_quarter, year=year, user=user.id)
+			quarter = Quarter.query.filter_by(number=current_quarter, year=year, truck=current_truck.id).first()
+			if not quarter:
+				quarter = Quarter(number=current_quarter, year=year, truck=current_truck.id)
 				quarter.save()
 
 			quarter.toll_miles = quarter.toll_miles + new_entry.toll_miles
 			quarter.non_toll_miles = quarter.non_toll_miles + new_entry.non_toll_miles
-			quarter.fuel_gallons = quarter.toll_miles + new_entry.fuel_gallons
+			quarter.fuel_gallons = quarter.fuel_gallons + new_entry.fuel_gallons
 
 			quarter.update()
 
 
-			try:
-				quarter_state_report = StateQuarterReport.query.filter_by(quarter=quarter.id, usa_state=USAState[new_entry.usa_state])
-			except:
+			quarter_state_report = StateQuarterReport.query.filter_by(quarter=quarter.id, usa_state=new_entry.usa_state).first()
+			if not quarter_state_report:
 				quarter_state_report = StateQuarterReport(quarter=quarter.id, usa_state=new_entry.usa_state)
 				quarter_state_report.save()
 
 			quarter_state_report.toll_miles = quarter_state_report.toll_miles + new_entry.toll_miles
 			quarter_state_report.non_toll_miles = quarter_state_report.non_toll_miles + new_entry.non_toll_miles
-			quarter_state_report.fuel_gallons = quarter_state_report.toll_miles + new_entry.fuel_gallons
+			quarter_state_report.fuel_gallons = quarter_state_report.fuel_gallons + new_entry.fuel_gallons
 
 			quarter_state_report.update()
 
@@ -135,13 +162,16 @@ class CreateGetAllNewEntry(Resource):
 
 			return "Success", HTTPStatus.CREATED
 			
-		except:
+		# except:
+		else:
 			return "Error", HTTPStatus.BAD_REQUEST
 
 
+@quarter_taxes_namespace.route("/new-entry/list")
+class CreateGetAllNewEntry(Resource):
 	@jwt_required(refresh=False)
-	@quarter_taxes_namespace.marshal_with(new_entry_model)
-	def get(self):
+	@quarter_taxes_namespace.marshal_with(new_entry_model, as_list=True)
+	def post(self):
 		"""
 			List all of the Entries of the Driver (for current quarter)
 		"""
@@ -150,23 +180,78 @@ class CreateGetAllNewEntry(Resource):
 			
 		driver = Driver.query.filter_by(email=email).first()
 
-		current_truck = driver.current_truck
+		current_truck = Truck.query.filter_by(current_driver=driver.id).first()
 		
 		data = request.get_json()
 
-		day = data.get('day')
 		month = data.get('month')
 		year = data.get("year")
 
 		current_quarter = get_current_quarter(month)
 
+
 		try:
-			new_entries = NewEntry.query.filter_by(number=current_quarter, year = year, truck = current_truck.id)
-			return new_entries, HTTPStatus.OK 
+			new_entries = NewEntry.query.filter_by(current_quarter=current_quarter, year = year, truck = current_truck.id)
+			return new_entries.all(), HTTPStatus.OK 
 		except:
 			return "Error", HTTPStatus.BAD_REQUEST
 
 		
+
+
+
+
+
+
+
+@quarter_taxes_namespace.route("/new-entry/delete/<id>")
+class CreateGetAllNewEntry(Resource):
+	@jwt_required(refresh=False)
+	def delete(self, id):
+		"""
+			Delete New Entry by id
+		"""
+
+		email = get_jwt_identity()
+			
+		driver = Driver.query.filter_by(email=email).first()
+
+		current_truck = Truck.query.filter_by(current_driver=driver.id).first()
+		
+		
+		try:
+			new_entry = NewEntry.query.filter_by(id=id, truck = current_truck.id).first()
+
+			quarter = Quarter.query.filter_by(year=new_entry.year, number=new_entry.current_quarter, truck=current_truck.id).first()
+
+			quarter.toll_miles = quarter.toll_miles - new_entry.toll_miles
+			quarter.non_toll_miles = quarter.non_toll_miles - new_entry.non_toll_miles
+			quarter.fuel_gallons = quarter.fuel_gallons - new_entry.fuel_gallons
+
+			quarter.update()
+
+
+			quarter_state_report = StateQuarterReport.query.filter_by(quarter=quarter.id, usa_state=new_entry.usa_state).first()
+			quarter_state_report.toll_miles = quarter_state_report.toll_miles - new_entry.toll_miles
+			quarter_state_report.non_toll_miles = quarter_state_report.non_toll_miles - new_entry.non_toll_miles
+			quarter_state_report.fuel_gallons = quarter_state_report.fuel_gallons - new_entry.fuel_gallons
+
+			quarter_state_report.update()
+
+
+
+
+			new_entry.delete()
+		
+			return "Success", HTTPStatus.OK 
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+
+
 
 @quarter_taxes_namespace.route("/calculate-taxes/<year>/<month>/<number>")
 class CalculateTaxes(Resource):
@@ -209,10 +294,10 @@ class CalculateTaxes(Resource):
 		quarter.fuel_tax_owned = quarter_fuel_tax_owned
 		quarter.update()
 
-		return{"Quarter": quarter, "State_Reports": state_reports}, HTTPStatus.Ok
+		return{"Quarter": quarter, "State_Reports": state_reports}, HTTPStatus.OK
 
 
-@quarter_taxes_namespace.route("/all-year-taxes")
+@quarter_taxes_namespace.route("/taxes-truck-year")
 class AllTaxesPerYear(Resource):
 
 	@jwt_required(refresh=False)
@@ -227,7 +312,7 @@ class AllTaxesPerYear(Resource):
 
 		tax_years = [year in Quarter.query.filter_by(truck=current_truck.id).values("year").distinct()]
 
-		return tax_years, HTTPStatus.Ok
+		return tax_years, HTTPStatus.OK
 
 
 
@@ -246,7 +331,7 @@ class AllYearTaxes(Resource):
 
 		tax_years = [number in Quarter.query.filter_by(truck=current_truck.id, year=year).values("number").distinct()]
 
-		return tax_years, HTTPStatus.Ok
+		return tax_years, HTTPStatus.OK
 
 
 
@@ -271,3 +356,27 @@ class AllYearTaxes(Resource):
 		quarter = Quarter.query.filter_by(number=current_quarter, year=year, truck=current_truck.id)
 		state_reports = StateQuarterReport.query.filter_by(quarter=quarter)
 
+
+
+
+
+
+
+
+
+
+
+@quarter_taxes_namespace.route("/taxes-truck-year/<year>")
+class AllYearTaxes(Resource):
+
+	@jwt_required(refresh=False)
+	@quarter_taxes_namespace.marshal_with(truck_info_model)
+	def get(self, year):
+
+		email = get_jwt_identity()
+		
+		user = User.query.filter_by(email=email).first()
+
+		all_trucks = Truck.query.filter_by(user=user.id).join(Quarter).filter(Quarter.year==year).all()
+
+		return all_trucks, HTTPStatus.OK

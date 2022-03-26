@@ -82,6 +82,11 @@ class NewEntry(db.Model):
     def update(self):
         db.session.commit()
 
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+
     def __str__(self):
         return str(self.id) + " - " + str(self.usa_state)
     
@@ -116,6 +121,9 @@ class StateQuarterReport(db.Model):
     def update(self):
         db.session.commit()
 
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
 
 
 
@@ -146,6 +154,10 @@ class Quarter(db.Model):
         db.session.commit()
 
     def update(self):
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
         db.session.commit()
 
     def __str__(self):
@@ -184,6 +196,10 @@ class StateTax(db.Model):
         db.session.commit()
 
     def update(self):
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
         db.session.commit()
 
     def __str__(self):
