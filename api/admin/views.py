@@ -31,12 +31,20 @@ class UserView(ModelView):
     def is_accessible(self):
         return current_user.has_role('admin')
 
+    column_exclude_list = ['password_hash',]
+
+    form_excluded_columns = ['password_hash',]
+
 
 
 class DriverView(ModelView):
 
     def is_accessible(self):
         return current_user.has_role('admin')
+
+    column_exclude_list = ['password_hash',]
+
+    form_excluded_columns = ['password_hash',]
 
 
 class TruckView(ModelView):

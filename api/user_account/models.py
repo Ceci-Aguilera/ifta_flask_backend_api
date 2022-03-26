@@ -252,7 +252,7 @@ class Payment(db.Model):
 
 
     def __str__(self):
-        return str(self.id) + " - " + str(self.license_plate_no)
+        return str(self.id) + " - " + str(self.created)
 
     def __repr__(self):
-        return f"<Truck {self.id} - {self.license_plate_no}>"
+        return f"<Truck {self.id} - {self.created}>"
