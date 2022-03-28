@@ -124,6 +124,8 @@ truck_info_model = user_account_namespace.model(
 
 
 
+
+
 @user_account_namespace.route('/signup')
 class SignUp(Resource):
 

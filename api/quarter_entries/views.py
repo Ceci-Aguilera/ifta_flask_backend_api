@@ -47,7 +47,6 @@ new_entry_model = quarter_taxes_namespace.model(
 state_report_model = quarter_taxes_namespace.model(
 	"StateQuarterReport", {
 		'id': fields.Integer(),
-		'mpg': fields.Float(),
 		'toll_miles': fields.Float(),
 		'non_toll_miles': fields.Float(),
 		'fuel_gallons': fields.Float(),
@@ -449,7 +448,7 @@ class CalculateTaxesOneYear(Resource):
 
 
 @quarter_taxes_namespace.route("/taxes-report/states-reports/<year>/<truck_id>/<quarter_number>")
-class CalculateTaxesOneYear(Resource):
+class CalculateStateTaxesYear(Resource):
 
 	@jwt_required(refresh=False)
 	@quarter_taxes_namespace.marshal_with(state_report_model, as_list=True)
@@ -469,3 +468,111 @@ class CalculateTaxesOneYear(Resource):
 		state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id).all()
 
 		return state_reports, HTTPStatus.OK
+
+
+@quarter_taxes_namespace.route("/driver/taxes-report/<year>/<quarter_number>")
+class CalculateTaxesDriver(Resource):
+
+	@jwt_required(refresh=False)
+	@quarter_taxes_namespace.marshal_with(quarter_model)
+	@quarter_taxes_namespace.marshal_with(state_report_model, as_list=True)
+	def get(self, year, quarter_number):
+
+		try:
+
+			email = get_jwt_identity()
+			
+			driver = Driver.query.filter_by(email=email).first()
+
+			current_truck = Truck.query.filter_by(current_driver=driver.id).first()
+
+
+			current_quarter = quarter_number
+
+			quarter = Quarter.query.filter_by(number=current_quarter, year=year, truck=current_truck.id).first()
+
+			mpg = quarter.toll_miles / quarter.fuel_gallons
+
+			quarter.mpg = round(mpg,2)
+
+			state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id).all()
+
+			quarter_fuel_tax_owned = 0
+
+			for state_report in state_reports:
+				tax_gallons = state_report.toll_miles / mpg
+				state_tax = StateTax.query.filter_by(usa_state = state_report.usa_state, number = current_quarter, year=year).first()
+				net_tax_gallons = tax_gallons - state_report.fuel_gallons
+				state_report.fuel_tax_owned = net_tax_gallons * state_tax.tax
+				state_report.update()
+				quarter_fuel_tax_owned = quarter_fuel_tax_owned + state_report.fuel_tax_owned
+
+			quarter.fuel_tax_owned = quarter_fuel_tax_owned
+			quarter.update()
+
+			print(quarter.mpg)
+
+			return quarter, HTTPStatus.OK
+		except:
+			return None, HTTPStatus.BAD_REQUEST
+
+
+
+@quarter_taxes_namespace.route("/driver/taxes-report/states-reports/<year>/<quarter_number>")
+class CalculateStateTaxesYear(Resource):
+
+	@jwt_required(refresh=False)
+	@quarter_taxes_namespace.marshal_with(state_report_model, as_list=True)
+	def get(self, year, quarter_number):
+
+		try:
+
+			email = get_jwt_identity()
+			
+			driver = Driver.query.filter_by(email=email).first()
+
+			current_truck = Truck.query.filter_by(current_driver=driver.id).first()
+
+
+			current_quarter = quarter_number
+
+			quarter = Quarter.query.filter_by(number=current_quarter, year=year, truck=current_truck.id).first()
+
+			state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id)
+
+			for state_report in state_reports:
+				print(state_report.usa_state)
+
+			return state_reports.all(), HTTPStatus.OK
+		except:
+			return [], HTTPStatus.BAD_REQUEST
+
+
+
+@quarter_taxes_namespace.route("/new-entries/list/<year>/<quarter_number>")
+class AllQuarterNewEntry(Resource):
+	@jwt_required(refresh=False)
+	@quarter_taxes_namespace.marshal_with(new_entry_model, as_list=True)
+	def post(self, year, quarter_number):
+		"""
+			List all of the Entries of the Driver (for current quarter)
+		"""
+
+		email = get_jwt_identity()
+			
+		driver = Driver.query.filter_by(email=email).first()
+
+		current_truck = Truck.query.filter_by(current_driver=driver.id).first()
+		
+		data = request.get_json()
+
+		usa_state = data.get('usa_state')
+
+		current_quarter = quarter_number
+
+
+		try:
+			new_entries = NewEntry.query.filter_by(current_quarter=current_quarter, year = year, truck = current_truck.id, usa_state=usa_state)
+			return new_entries.all(), HTTPStatus.OK 
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
