@@ -310,6 +310,11 @@ class LogIn(Resource):
 
 		driver = Driver.query.filter_by(email=email).first()
 
+		user = User.query.filter_by(id=driver.user).first()
+
+		if user.paid_until < datetime.today():
+			return "Error", HTTPStatus.BAD_REQUEST
+
 		if driver is not None and check_password_hash(driver.password_hash, password):
 			
 			access_token = create_access_token(identity=driver.email)
@@ -387,15 +392,18 @@ class CheckAuthDriver(Resource):
 			Check if Driver is Logged in and send data of User
 		"""
 
-		# try:
-		if True:
+		try:
 			email = get_jwt_identity()
 			driver = Driver.query.filter_by(email=email).first()
 
+			user = User.query.filter_by(id=driver.user).first()
+
+			if user.paid_until < datetime.today():
+				return "Error", HTTPStatus.BAD_REQUEST
+
 			return driver, HTTPStatus.OK
 
-		# except:
-		else:
+		except:
 			return "Error", HTTPStatus.BAD_REQUEST
 
 
