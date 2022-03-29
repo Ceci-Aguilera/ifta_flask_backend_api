@@ -478,7 +478,8 @@ class CalculateTaxesDriver(Resource):
 	@quarter_taxes_namespace.marshal_with(state_report_model, as_list=True)
 	def get(self, year, quarter_number):
 
-		try:
+		# try:
+		if True:
 
 			email = get_jwt_identity()
 			
@@ -513,7 +514,8 @@ class CalculateTaxesDriver(Resource):
 			print(quarter.mpg)
 
 			return quarter, HTTPStatus.OK
-		except:
+		# except:
+		else:
 			return None, HTTPStatus.BAD_REQUEST
 
 

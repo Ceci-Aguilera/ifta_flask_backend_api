@@ -3,6 +3,7 @@ from http import HTTPStatus
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from dateutil.relativedelta import relativedelta
 
 
 from flask import request, redirect, make_response, send_from_directory, current_app
@@ -28,8 +29,8 @@ from config import db
 
 
 class SimpleDateField(fields.Raw):
-    def format(self, value):
-        return value.strftime('%Y-%m-%d')
+	def format(self, value):
+		return value.strftime('%Y-%m-%d')
 
 
 
@@ -125,6 +126,48 @@ truck_info_model = user_account_namespace.model(
 
 
 
+def current_quarter_end(current_time_date):
+
+	today = current_time_date
+	today_year = current_time_date.year
+
+	if today < datetime(today_year, 4, 30):
+		return datetime(today_year, 4, 30)
+
+	elif today < datetime(today_year, 7, 31):
+		return datetime(today_year, 7, 31)
+
+	elif today < datetime(today_year, 10, 31):
+		return datetime(today_year, 10, 31)
+
+	else:
+		return datetime(today_year+1, 1, 31)
+
+
+def add_paid_quarters(quarters, current_time_date):
+	if quarters == 1:
+		return current_quarter_end(current_time_date)
+	elif quarters == 2:
+		current_time_date = current_time_date + relativedelta(months = 3)
+		return current_quarter_end(current_time_date)
+	elif quarters == 3:
+		current_time_date = current_time_date + relativedelta(months = 6)
+		return current_quarter_end(current_time_date)
+	else:
+		current_time_date = current_time_date + relativedelta(months = 9)
+		return current_quarter_end(current_time_date)
+
+
+
+
+
+
+
+
+
+
+
+
 
 @user_account_namespace.route('/signup')
 class SignUp(Resource):
@@ -150,6 +193,7 @@ class SignUp(Resource):
 				city=data.get('city'),
 				zipcode=data.get('zipcode'),
 				fax=data.get('fax'),
+				paid_until = datetime.today() + relativedelta(days = 7),
 				password_hash=generate_password_hash(data.get("password"))
 			)
 			
@@ -469,7 +513,7 @@ class RetrieveEditDeleteDriver(Resource):
 	def get(self, id):
 		"""
 			Retrieve Driver Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 
@@ -486,7 +530,7 @@ class RetrieveEditDeleteDriver(Resource):
 	def post(self, id):
 		"""
 			Edit Driver Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		user = User.query.filter_by(email=email).first()
@@ -511,7 +555,7 @@ class RetrieveEditDeleteDriver(Resource):
 	def delete(self, id):
 		"""
 			Delete Driver Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		user = User.query.filter_by(email=email).first()
@@ -608,7 +652,7 @@ class RetrieveEditDeleteTruck(Resource):
 	def get(self, id):
 		"""
 			Retrieve Truck Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		user = User.query.filter_by(email=email).first()
@@ -624,7 +668,7 @@ class RetrieveEditDeleteTruck(Resource):
 	def post(self, id):
 		"""
 			Edit Truck Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		user = User.query.filter_by(email=email).first()
@@ -662,7 +706,7 @@ class RetrieveEditDeleteTruck(Resource):
 	def delete(self, id):
 		"""
 			Delete Truck Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		user = User.query.filter_by(email=email).first()
@@ -725,7 +769,7 @@ class ExtendService(Resource):
 			new_payment.save()
 
 			
-			user.paid_until = user.paid_until + timedelta(30)
+			user.paid_until = add_paid_quarters(1, datetime.today())
 
 			user.update()
 
@@ -761,7 +805,7 @@ class RetrieveDriverInfo(Resource):
 	def get(self):
 		"""
 			Retrieve Driver Info
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		
@@ -805,7 +849,7 @@ class RetrieveCurrentTruck(Resource):
 	def get(self):
 		"""
 			Retrieve Current Truck
- 		"""
+		"""
 
 		email = get_jwt_identity()
 		
