@@ -12,6 +12,7 @@ from flask_jwt_extended import JWTManager
 from flask_security import current_user, login_required, RoleMixin, Security, SQLAlchemyUserDatastore, UserMixin
 
 from flask_cors import CORS
+from flask_mail import Mail
 
 
 from config import db,config
@@ -26,7 +27,7 @@ from .admin.views import UserView, DriverView, TruckView, NewEntryView, QuarterV
 
 
 
-
+mail = Mail()
 
 
 
@@ -74,6 +75,9 @@ def create_app(config_env='development'):
     admin.add_view(RoleAdminView(Role, db.session))
 
     
+
+    mail.init_app(app)
+
 
 
     @app.shell_context_processor

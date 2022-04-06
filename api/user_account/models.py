@@ -102,6 +102,8 @@ class User(db.Model):
     
     payments = db.relationship("Payment", backref='owner', lazy=True)
 
+    last_token_password = db.Column(db.String(256), default="-1")
+
 
     def save(self):
         db.session.add(self)

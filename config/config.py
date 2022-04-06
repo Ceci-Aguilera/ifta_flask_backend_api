@@ -22,13 +22,13 @@ class Config(object):
     SECURITY_POST_LOGIN_VIEW = '/admin'
     LOGIN_DISABLED = False
     WTF_CSRF_ENABLED = False
-    # MAIL_SERVER = config('MAIL_SERVER', 'MAIL_SERVER')
-    # MAIL_PORT = config('MAIL_PORT', 'MAIL_PORT')
-    # MAIL_USERNAME = config('MAIL_USERNAME', 'MAIL_USERNAME')
-    # MAIL_PASSWORD = config('MAIL_PASSWORD', 'MAIL_PASSWORD')
+    MAIL_SERVER = config('MAIL_SERVER', 'MAIL_SERVER')
+    MAIL_PORT = config('MAIL_PORT', 'MAIL_PORT')
+    MAIL_USERNAME = config('MAIL_USERNAME', 'MAIL_USERNAME')
+    MAIL_PASSWORD = config('MAIL_PASSWORD', 'MAIL_PASSWORD')
     MAIL_USE_TLS = True
     MAIL_USE_SSL = False
-    # MAIL_STRING_ID = config('MAIL_STRING_ID', 'MAIL_STRING_ID')
+    MAIL_STRING_ID = config('MAIL_STRING_ID', 'MAIL_STRING_ID')
     CORS_ORIGINS=[config('FRONTEND_APP', default="http://localhost:3000")]
 
 

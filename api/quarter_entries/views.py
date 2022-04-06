@@ -505,6 +505,8 @@ class CalculateTaxesDriver(Resource):
 					state_tax = StateTax.query.filter_by(usa_state = state_report.usa_state, number = current_quarter, year=year).first()
 					net_tax_gallons = tax_gallons - state_report.fuel_gallons
 					state_report.fuel_tax_owned = net_tax_gallons * state_tax.tax
+					print(tax_gallons - state_report.fuel_gallons)
+					print(tax_gallons)
 					state_report.update()
 					quarter_fuel_tax_owned = quarter_fuel_tax_owned + state_report.fuel_tax_owned
 
