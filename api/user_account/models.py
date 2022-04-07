@@ -144,6 +144,8 @@ class Driver(db.Model):
     user = db.Column(db.Integer(), db.ForeignKey("users.id"))
     truck = db.relationship("Truck", uselist=False, backref="driver")
 
+    last_token_password = db.Column(db.String(256), default="-1")
+
 
     def save(self):
         db.session.add(self)

@@ -990,3 +990,70 @@ class ResetPassword(Resource):
 		# except:
 		else:
 			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+@user_account_namespace.route('/driver/send-request-reset-password')
+class DriverSendRequestResetPassword(Resource):
+
+	def post(self):
+		
+		app = current_app._get_current_object()
+
+		data = request.get_json()
+
+		try:
+			driver = Driver.query.filter_by(email=data.get('email')).first()
+			email_in_bytes = bytes(driver.email, 'utf-8')
+			last_uid_password = base64.urlsafe_b64encode(email_in_bytes)
+			last_uid_password = last_uid_password.decode('UTF-8')
+			driver.last_token_password = secrets.token_hex(16)
+			driver.update()
+
+			msg = flask_mail.Message('Reset Password Requested', sender=current_app.config['MAIL_USERNAME'], recipients=[
+                             driver.email])
+
+			msg.msId = msg.msgId.split('@')[0] + '@' + current_app.config["MAIL_STRING_ID"]
+
+			msg.html = render_template("user-account/driver-send-request-reset-password.html",uid=last_uid_password, token=driver.last_token_password)
+
+			thr = Thread(target=send_async_email, args=[app, msg])
+			thr.start()
+			return "Success", HTTPStatus.OK
+		except:
+			return "Error", HTTPStatus.BAD_REQUEST
+
+
+@user_account_namespace.route('/driver/reset-password/<uid>/<token>')
+class DriverResetPassword(Resource):
+
+	def post(self, uid, token):
+		
+		app = current_app._get_current_object()
+
+		data = request.get_json()
+
+		password = data.get('password')
+		re_password = data.get('re_password')
+
+		if(password != re_password):
+			return "Error", HTTPStatus.BAD_REQUEST
+
+		# try:
+		if True:
+			email_in_bytes = bytes(uid, 'utf-8')
+			last_uid_password = base64.urlsafe_b64decode(email_in_bytes)
+			email = last_uid_password.decode('UTF-8')
+
+			print(email)
+
+			driver = Driver.query.filter_by(email=email, last_token_password=token).first()
+
+			driver.last_token_password = "-1"
+			driver.password_hash = generate_password_hash(password)
+			driver.update()
+
+			return "Success", HTTPStatus.OK
+		# except:
+		else:
+			return "Error", HTTPStatus.BAD_REQUEST
