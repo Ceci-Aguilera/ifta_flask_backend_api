@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: "iftaya-flask-backend-api"
+    # volumes:
+    #   - ./:/usr/src/app/
+    ports:
+      - 5000:5050
+    env_file:
+      - ./config/.env
+    depends_on:
+      - db
+    links:
+      - db
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=docker_ifta_user
+      - POSTGRES_PASSWORD=docker_ifta_pass
+      - POSTGRES_DB=docker_ifta_db
+
+volumes:
+  postgres_data:
