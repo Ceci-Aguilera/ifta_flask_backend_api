@@ -1056,4 +1056,5 @@ class DriverResetPassword(Resource):
 			return "Success", HTTPStatus.OK
 		# except:
 		else:
-			return "Error", HTTPStatus.BAD_REQUEST
+			return "Error", HTTPStatus.BAD_REQUEST		
+

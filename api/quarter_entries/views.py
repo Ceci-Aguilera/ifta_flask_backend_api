@@ -5,7 +5,14 @@ from datetime import timedelta
 from datetime import timezone
 from dateutil.relativedelta import relativedelta
 
-from flask import request
+import flask_mail
+
+import os
+from threading import Thread
+from time import sleep
+
+
+from flask import request, render_template, Blueprint, current_app
 from flask_restx import Resource, Namespace, fields
 from http import HTTPStatus
 from flask_jwt_extended import (
@@ -32,6 +39,9 @@ def get_current_quarter(month):
 
 quarter_taxes_namespace = Namespace(
 	'manage-quarter-taxes', description="A Namespace for managing new entries")
+
+staff_namespace = Blueprint(
+    'staff', __name__, template_folder='templates', url_prefix='/staff')
 
 new_entry_model = quarter_taxes_namespace.model(
 	"NewEntry", {
@@ -505,8 +515,6 @@ class CalculateTaxesDriver(Resource):
 					state_tax = StateTax.query.filter_by(usa_state = state_report.usa_state, number = current_quarter, year=year).first()
 					net_tax_gallons = tax_gallons - state_report.fuel_gallons
 					state_report.fuel_tax_owned = net_tax_gallons * state_tax.tax
-					print(tax_gallons - state_report.fuel_gallons)
-					print(tax_gallons)
 					state_report.update()
 					quarter_fuel_tax_owned = quarter_fuel_tax_owned + state_report.fuel_tax_owned
 
@@ -573,3 +581,69 @@ class AllQuarterNewEntry(Resource):
 			return new_entries.all(), HTTPStatus.OK 
 		except:
 			return "Error", HTTPStatus.BAD_REQUEST
+
+
+
+
+def send_async_email(app, msg):
+    from api import mail
+    with app.app_context():
+        for i in range(5, -1, -1):
+            sleep(2)
+            print('time:', i)
+        from api import mail
+        mail.send(msg)
+
+
+@staff_namespace.route('/pdf-viewer', methods=['GET', 'POST'])
+def render_template_tax_report(user, truck, quarter, state_reports):
+	render_template("user-account/send-tax-report.html", user=user, truck=truck, quarter=quarter, state_reports=state_reports)
+
+
+@quarter_taxes_namespace.route('/send-report/<truck_id>/<year>/<quarter_number>')
+class SendTaxReport(Resource):
+
+	@jwt_required(refresh=False)
+	def get(self, truck_id, year, quarter_number):
+		
+		app = current_app._get_current_object()
+
+		email = get_jwt_identity()
+		
+		user = User.query.filter_by(email=email).first()
+
+		current_truck = Truck.query.filter_by(id=truck_id, user=user.id).first()
+		quarter = Quarter.query.filter_by(number=quarter_number, year=year, truck=current_truck.id).first()
+		state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id)
+
+		msg = flask_mail.Message('Tax Report', sender=current_app.config['MAIL_USERNAME'], recipients=[
+                             user.email])
+
+		msg.msId = msg.msgId.split('@')[0] + '@' + current_app.config["MAIL_STRING_ID"]
+
+		msg.html = render_template_tax_report(user=user, truck=current_truck, quarter=quarter, state_reports=state_reports)
+
+		thr = Thread(target=send_async_email, args=[app, msg])
+		thr.start()
+		return "Success", HTTPStatus.OK
+
+
+
+
+
+
+@staff_namespace.route('/pdf-viewer', methods=['GET', 'POST'])
+def PDFViewer():
+	if request.method == 'GET':
+		"""
+			View Document PDF
+		"""
+
+		user = User.query.filter_by(email="iftanow.test@gmail.com").first()
+
+		current_truck = Truck.query.filter_by(id="7", user=user.id).first()
+		quarter = Quarter.query.filter_by(number="2", year="2022", truck=current_truck.id).first()
+		state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id)
+
+		return render_template("user-account/send_tax_report.html", user=user, truck=current_truck, quarter=quarter, state_reports=state_reports)
+		

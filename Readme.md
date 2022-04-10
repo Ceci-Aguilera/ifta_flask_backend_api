@@ -1,4 +1,12 @@
-# IFTA ya! ![IFTA ya LOGO](/screenshots/ifta-logo-dark.svg)
+<div style="text-align:center">
+
+ ![IFTA ya LOGO](/public/logos/ifta-logo-dark.svg)
+
+ # IFTA ya!
+
+![Python version](https://img.shields.io/badge/python-3.8.10-green) ![Flask version](https://img.shields.io/badge/flask-2.0.3-green) ![PostgreSQL version](https://img.shields.io/badge/PostgreSQL-12.8-green) ![Commit activity](https://img.shields.io/github/commit-activity/y/Ceci-Aguilera/ifta_flask_backend_api/master)
+
+</div>
 
 ## Table of Contents
 
@@ -34,8 +42,11 @@
     ADMIN_PASSWORD_CREDENTIAL       (the password for the Admin user)
     MAIL_SERVER                     (the server for sending emails using Flask-Mail)
     MAIL_PORT
+    MAIL_USERNAME                  
     MAIL_PASSWORD
     MAIL_STRING_ID                  (a short random string to pass when using office 365)
+    STRIPE_TEST_PUBLISHABLE_KEY
+    STRIPE_TEST_SECRET_KEY
     FRONTEND_APP                    (an allowed origin)
    ```
 
@@ -96,8 +107,11 @@
     FRONTEND_APP                    (An allowed origin)
     MAIL_SERVER                     (the server for sending emails using Flask-Mail)
     MAIL_PORT
+    MAIL_USERNAME
     MAIL_PASSWORD
     MAIL_STRING_ID                  (a short random string to pass when using office 365)
+    STRIPE_TEST_PUBLISHABLE_KEY
+    STRIPE_TEST_SECRET_KEY
     FRONTEND_APP                    (an allowed origin)
    ```
 
@@ -108,6 +122,8 @@
    ```bash
    cp config/.example.env config/.env
    ```
+
+1. Change the parameter of the function create_app() in the api/\_\_init\_\_.py file from 'testing' to 'development'
 
 1. Run the migrations
 

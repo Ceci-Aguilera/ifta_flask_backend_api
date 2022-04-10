@@ -22,8 +22,8 @@ from .quarter_entries.models import NewEntry, Quarter, StateQuarterReport, State
 from .admin.models import UserAdmin, Role
 
 from .user_account.views import user_account_namespace
-from .quarter_entries.views import quarter_taxes_namespace
-from .admin.views import UserView, DriverView, TruckView, NewEntryView, QuarterView, StateTaxView, StateQuarterReportView, UserAdminView, RoleAdminView
+from .quarter_entries.views import quarter_taxes_namespace, staff_namespace
+from .admin.views import *
 
 
 
@@ -34,7 +34,7 @@ mail = Mail()
 # ========================================================
 # Create App
 # ========================================================
-def create_app(config_env='development'):
+def create_app(config_env='testing'):
     config_map = {
             'development': config.DevelopmentConfig(),
             'testing': config.TestingConfig(),
@@ -77,6 +77,8 @@ def create_app(config_env='development'):
     
 
     mail.init_app(app)
+
+    app.register_blueprint(staff_namespace)
 
 
 

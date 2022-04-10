@@ -18,4 +18,4 @@ flask db upgrade
 
 echo "Postgresql migrations finished"
 
-python app_docker.py
+python app.py
