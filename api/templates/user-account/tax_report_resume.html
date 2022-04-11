@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        <title>Trucks Cargos Documents</title>
+        <title>IFTA ya!</title>
         <meta name="description" content="" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
             <link
@@ -15,72 +15,57 @@
 
             <link rel="stylesheet" href="{{ url_for('static', filename='assets/IftayaLogo.svg') }}" />
 
+            <link rel="shortcut icon" href="{{ url_for('static', filename='/favicon.ico') }}" />
+
             <style>
-                h1{
-                  color: #ff1111 !important;
-                }
-              
-              .span-ifta{
-                  color: #e1242b !important;
-              }
+
+            .brand-image-div{
+              margin-top: 25px;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              text-align: center;
+            }
 
               .p-section{
                 color: #e1242b;
+                margin-top: 50px;
                 font-size: 1.2rem;
                 font-weight: bold;
+                text-align: center;
               }
 
-              .p-info{
-                font-size: 1.1rem;
+              .button-div{
+                margin-top: 50px;
+                text-align: center;
               }
 
-              .title-span{
-                font-weight: bold;
+              .button{
+                border-radius : 0px !important;
+                font-size: 1.2rem;
+              }
+
+              .alert{
+                width: 100%;
+                max-width: max-content;
+                margin-top: 25px;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                text-align: center;
               }
             </style>
     </head>
     <body>
-        
-        <h1>IFTA <span class="span-ifta">ya!</span></h1>
 
-        <p>Hola {{user.contact_name}},</p>
-
-        <p class="p-title">Here is your IFTA Tax Report Information:</p>
-
-        <div class="row">
-
-            <div class="col-6">
-
-        <p class="p-section"> Company Information</p>
-
-        <p class="p-info"><span class="title-span">Company Name: </span>{{user.company_name}}</p>
-
-        <p class="p-info"><span class="title-span">Company Email: </span>{{user.email}}</p>
-
-        <p class="p-info"><span class="title-span">Address: </span>{{user.address}}, {{user.city}}, {{user.usa_state.value}} {{user.zipcode}}</p>
-
-        <p class="p-info"><span class="title-span">EIN No: </span>{{user.ein_no}}</p>
-
-        <p class="p-info"><span class="title-span">Phone: </span>{{user.phone}}</p>
+      <div class="brand-image-div">
+        <img class='brand-image' src="/static/assets/IftayaLogo.svg/" />
       </div>
 
-
-<div class="col-6">
-         <p class="p-section"> Truck Information</p>
-
-        <p class="p-info"><span class="title-span">Truck Plate: </span>{{truck.license_plate_no}}</p>
-
-        <p class="p-info"><span class="title-span">VIM Number: </span>{{truck.vim_no}}</p>
-
-        <p class="p-info"><span class="title-span">Make: </span>{{truck.truck_make}}</p>
-
-        <p class="p-info"><span class="title-span">Model: </span>{{truck.truck_model}}</p>
-
-        <p class="p-info"><span class="title-span">Year: </span>{{truck.year}}</p>
-      </div>
-
-
-      </div>
+      {% if message != "message_not_sent" %}
+            <div class="alert alert-success alert-dismissible fade show">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+      {% endif %}
 
         <p class="p-section"> Fueling and Miles Information</p>
 
@@ -131,6 +116,16 @@
             </thead>
           
           </table>
+
+          <form method="post">
+
+          <div class="button-div"> 
+            <button class="btn btn-danger button" type="submit">
+              SEND EMAIL
+            </button>
+          </div>
+
+        </form>
         
 
           

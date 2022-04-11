@@ -12,7 +12,7 @@ from threading import Thread
 from time import sleep
 
 
-from flask import request, render_template, Blueprint, current_app
+from flask import request, render_template, Blueprint, current_app, flash, redirect
 from flask_restx import Resource, Namespace, fields
 from http import HTTPStatus
 from flask_jwt_extended import (
@@ -595,21 +595,26 @@ def send_async_email(app, msg):
         mail.send(msg)
 
 
-@staff_namespace.route('/pdf-viewer', methods=['GET', 'POST'])
-def render_template_tax_report(user, truck, quarter, state_reports):
-	render_template("user-account/send-tax-report.html", user=user, truck=truck, quarter=quarter, state_reports=state_reports)
 
+@staff_namespace.route('/ifta-tax-report/<email>/<truck_id>/<year>/<quarter_number>', methods=['GET', 'POST'])
+def SendTaxReport(email, truck_id, year, quarter_number):
+	if request.method == 'GET':
+		"""
+			View Tax Report
+		"""
 
-@quarter_taxes_namespace.route('/send-report/<truck_id>/<year>/<quarter_number>')
-class SendTaxReport(Resource):
+		user = User.query.filter_by(email=email).first()
 
-	@jwt_required(refresh=False)
-	def get(self, truck_id, year, quarter_number):
+		current_truck = Truck.query.filter_by(id=truck_id, user=user.id).first()
+		quarter = Quarter.query.filter_by(number=quarter_number, year=year, truck=current_truck.id).first()
+		state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id)
+
+		return render_template("user-account/tax_report_resume.html", user=user, truck=current_truck, quarter=quarter, state_reports=state_reports, message="message_not_sent")
 		
+	if request.method == 'POST':
+
 		app = current_app._get_current_object()
 
-		email = get_jwt_identity()
-		
 		user = User.query.filter_by(email=email).first()
 
 		current_truck = Truck.query.filter_by(id=truck_id, user=user.id).first()
@@ -621,29 +626,9 @@ class SendTaxReport(Resource):
 
 		msg.msId = msg.msgId.split('@')[0] + '@' + current_app.config["MAIL_STRING_ID"]
 
-		msg.html = render_template_tax_report(user=user, truck=current_truck, quarter=quarter, state_reports=state_reports)
+		msg.html = render_template("user-account/send_tax_report.html", user=user, truck=current_truck, quarter=quarter, state_reports=state_reports)
 
 		thr = Thread(target=send_async_email, args=[app, msg])
 		thr.start()
-		return "Success", HTTPStatus.OK
-
-
-
-
-
-
-@staff_namespace.route('/pdf-viewer', methods=['GET', 'POST'])
-def PDFViewer():
-	if request.method == 'GET':
-		"""
-			View Document PDF
-		"""
-
-		user = User.query.filter_by(email="iftanow.test@gmail.com").first()
-
-		current_truck = Truck.query.filter_by(id="7", user=user.id).first()
-		quarter = Quarter.query.filter_by(number="2", year="2022", truck=current_truck.id).first()
-		state_reports = StateQuarterReport.query.filter_by(quarter=quarter.id)
-
-		return render_template("user-account/send_tax_report.html", user=user, truck=current_truck, quarter=quarter, state_reports=state_reports)
 		
+		return render_template("user-account/tax_report_resume.html", user=user, truck=current_truck, quarter=quarter, state_reports=state_reports, message="Message was sent to your email. This email can take from 10 seconds to 1 minute to arraive")
