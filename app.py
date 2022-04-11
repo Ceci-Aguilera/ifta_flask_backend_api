@@ -4,7 +4,7 @@ from flask import url_for
 # ========================================================
 # Run App
 # ========================================================
-app = create_app('development')
+app = create_app('testing')
 
 
 def runserver():
